@@ -14,6 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>4.12</junit.version>
         <maven-compiler-plugin.version>3.6.2</maven-compiler-plugin.version>
+        <netty-all.version>4.1.6.FINAL</netty-all.version>
     </properties>
     <!--配置私服仓库-->
     <!--deploy操作
@@ -47,6 +48,11 @@
         </snapshotRepository>
     </distributionManagement>
     <dependencies>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>${netty-all.version}</version>
+        </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
