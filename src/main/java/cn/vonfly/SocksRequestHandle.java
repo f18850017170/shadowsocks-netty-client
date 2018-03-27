@@ -7,10 +7,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.socks.*;
 @ChannelHandler.Sharable
 public final class SocksRequestHandle extends SimpleChannelInboundHandler<SocksRequest> {
-    private ChannelConfig channelConfig;
-    public SocksRequestHandle(ChannelConfig channelConfig){
-        this.channelConfig = channelConfig;
-    }
+
     protected void channelRead0(ChannelHandlerContext ctx, SocksRequest msg) throws Exception {
         switch (msg.requestType()){
             case INIT:
@@ -25,7 +22,7 @@ public final class SocksRequestHandle extends SimpleChannelInboundHandler<SocksR
                 SocksCmdRequest request = (SocksCmdRequest) msg;
                 if (request.cmdType() == SocksCmdType.CONNECT){
                     System.out.println("local server connected");
-                    ctx.pipeline().addFirst(new SocksCmdRequestDecoder());
+                    ctx.pipeline().addLast(new SocksCmdRequestDecoder());
                     ctx.pipeline().addLast(new SocksServerConnectHandler()); //TODO
                     ctx.pipeline().remove(this);
                     ctx.fireChannelRead(request);

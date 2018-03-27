@@ -13,16 +13,16 @@ public final class SocksServerInitializer extends ChannelInitializer<SocketChann
     private SocksMessageEncoder socksMessageEncoder;
     private SocksRequestHandle socksRequestHandle;
 
-    public SocksServerInitializer(ChannelConfig channelConfig) {
+    public SocksServerInitializer() {
         this.socksMessageEncoder = new SocksMessageEncoder();
-        this.socksRequestHandle = new SocksRequestHandle(channelConfig);
+        this.socksRequestHandle = new SocksRequestHandle();
     }
 
     protected void initChannel(SocketChannel ch) throws Exception {
             // inbound handle
             ch.pipeline()
-                    .addLast(new SocksInitRequestDecoder())
-                    .addLast(socksRequestHandle);
+                    .addLast(new SocksInitRequestDecoder())//socks 版本校验  验证通过时 返回SocksRequestType.INIT且移除该channelhandle
+                    .addLast(socksRequestHandle);//处理 init 不验证 ；处理auth authentication success；处理cmd 移除该channelhandle 增加
             //outbound handle
             ch.pipeline().addFirst(socksMessageEncoder);
 

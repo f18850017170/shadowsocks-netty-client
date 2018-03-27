@@ -20,16 +20,18 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
 
         promise.addListener(new GenericFutureListener<Future<Channel>>() {
             public void operationComplete(Future<Channel> future) throws Exception {
-                final Channel outBoundChannel = future.getNow();//连接到远程代理服务器的channel
+                final Channel remoteInLocalBoundChannel = future.getNow();//连接到远程代理服务器的channel
                 if (future.isSuccess()){
-                    //TODO
-                    //todo
                     ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS,SocksAddressType.IPv4))//TODO
                             .addListener(new ChannelFutureListener() {
                                 public void operationComplete(ChannelFuture future) throws Exception {
                                     ctx.pipeline().remove(SocksServerConnectHandler.this);
-                                    ctx.pipeline().addLast(new LocalOutReplayHandler((SocketChannel) outBoundChannel));
-                                    outBoundChannel.pipeline().addLast(new RemoteInReplayHandler((SocketChannel) ctx.channel()));
+                                    ctx.pipeline()
+                                            .addLast(new LocalMsgEncrypt())//加密请求数据
+                                            .addLast(new LocalOutReplayHandler((SocketChannel) remoteInLocalBoundChannel));
+                                    remoteInLocalBoundChannel.pipeline()
+                                            .addLast(new RemoteMsgDecrypt())//解密remote 返回信息
+                                            .addLast(new RemoteInReplayHandler((SocketChannel) ctx.channel()));//写到本地local channel
                                 }
                             });
                 }
