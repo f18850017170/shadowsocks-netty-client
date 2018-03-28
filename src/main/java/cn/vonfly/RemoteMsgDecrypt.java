@@ -14,11 +14,20 @@ public class RemoteMsgDecrypt extends MessageToMessageDecoder<ByteBuf> {
     private ICrypt iCrypt = CryptFactory.get("aes-256-cfb", "6P(g*(%gYDrBggFk");
 
     protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) throws Exception {
-        msg.skipBytes(3);
         int len = msg.readableBytes();
-        ByteBuf byteBuf = msg.readBytes(len);
+        byte[] array = new byte[len];
+        if (msg.hasArray()) {
+            array = msg.array();
+        } else {//非数组支撑，是直接缓冲区
+            msg.getBytes(msg.readerIndex(), array);
+        }
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        iCrypt.decrypt(byteBuf.array(), byteArrayOutputStream);
+        iCrypt.decrypt(array, byteArrayOutputStream);
         out.add(byteArrayOutputStream.toByteArray());
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        super.channelRead(ctx, msg);
     }
 }

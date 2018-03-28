@@ -12,17 +12,22 @@ public final class SocksRequestHandle extends SimpleChannelInboundHandler<SocksR
         switch (msg.requestType()){
             case INIT:
                 System.out.println("local server init");
+                //SocksCmdRequestDecoder 执行一次后会自己移除自己
+                ctx.pipeline().addFirst(new SocksCmdRequestDecoder());//将下一个请求 从字节码解码为SocksCmdRequest才能获得CMD 此时SocksInitRequestDecoder已被移除
                 ctx.write(new SocksInitResponse(SocksAuthScheme.NO_AUTH));
                 break;
             case AUTH:
+                //若在init时 直接返回NO_AUTH则此处不会被访问到
                 System.out.println("def auth success");
+                //SocksCmdRequestDecoder  执行一次后会自己移除自己
+                ctx.pipeline().addFirst(new SocksCmdRequestDecoder());//将下一个请求 从字节码解码为SocksCmdRequest才能获得CMD  此时SocksInitRequestDecoder已被移除
                 ctx.write(new SocksAuthResponse(SocksAuthStatus.SUCCESS));
                 break;
             case CMD:
                 SocksCmdRequest request = (SocksCmdRequest) msg;
                 if (request.cmdType() == SocksCmdType.CONNECT){
                     System.out.println("local server connected");
-                    ctx.pipeline().addLast(new SocksCmdRequestDecoder());
+//                    ctx.pipeline().addLast(new SocksCmdRequestDecoder());
                     ctx.pipeline().addLast(new SocksServerConnectHandler()); //TODO
                     ctx.pipeline().remove(this);
                     ctx.fireChannelRead(request);

@@ -24,7 +24,7 @@ public final class SocksServerInitializer extends ChannelInitializer<SocketChann
                     .addLast(new SocksInitRequestDecoder())//socks 版本校验  验证通过时 返回SocksRequestType.INIT且移除该channelhandle
                     .addLast(socksRequestHandle);//处理 init 不验证 ；处理auth authentication success；处理cmd 移除该channelhandle 增加
             //outbound handle
-            ch.pipeline().addFirst(socksMessageEncoder);
+            ch.pipeline().addFirst(socksMessageEncoder);//socks 格式信息转换为byte返回给pc
 
     }
 }
