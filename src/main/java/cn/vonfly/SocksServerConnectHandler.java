@@ -4,10 +4,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.http.HttpRequestDecoder;
-import io.netty.handler.codec.http.HttpRequestEncoder;
-import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
-import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
 import io.netty.handler.codec.socks.*;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -31,14 +27,10 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
                                             .remove(SocksMessageEncoder.class);
                                     ctx.pipeline()
 //                                            .addLast(new SkipSocksInBoundHandler())
-                                            .addLast(new HttpRequestDecoder())
-                                            .addLast(new HttpRequestHandler())
-                                            .addLast(new HttpRequestEncoder());
-
 //                                            .addLast(new LocalMsgEncrypt())//加密请求数据
-//                                            .addLast(new LocalOutReplayHandler((SocketChannel) remoteInLocalBoundChannel));
+                                            .addLast(new LocalOutReplayHandler((SocketChannel) remoteInLocalBoundChannel));
                                     remoteInLocalBoundChannel.pipeline()
-                                            .addLast(new RemoteMsgDecrypt())//解密remote 返回信息
+//                                            .addLast(new RemoteMsgDecrypt())//解密remote 返回信息
                                             .addLast(new RemoteInReplayHandler((SocketChannel) ctx.channel()));//写到本地local channel
                                 }
                             });
@@ -46,11 +38,11 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
             }
         });
         final Channel inBoundChannel = ctx.channel();
-        bootstrap.group(inBoundChannel.eventLoop()).channel(NioSocketChannel.class).option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+        bootstrap.group(inBoundChannel.eventLoop()).channel(NioSocketChannel.class).option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .handler(new ClientChannelPromiseHandle(promise)); //
         //TODO 代理的地址和端口
-        bootstrap.connect("45.63.104.54", 27).addListener(new ChannelFutureListener() {
+        bootstrap.connect("127.0.0.1", 2081).addListener(new ChannelFutureListener() {
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (!future.isSuccess()) {
                     //回写local ss 连接失败信息

@@ -1,5 +1,6 @@
 package cn.vonfly;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.socket.SocketChannel;
@@ -15,12 +16,22 @@ public class RemoteInReplayHandler extends ChannelInboundHandlerAdapter{
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        localSocketChannel.write(msg);
+        ByteBuf byteBuf = (ByteBuf) msg;
+        int len = byteBuf.readableBytes();
+        byte[] array = new byte[len];
+        if (byteBuf.hasArray()){
+            array = byteBuf.array();
+        }else {//非数组支撑，是直接缓冲区
+            byteBuf.getBytes(byteBuf.readerIndex(),array);
+        }
+        System.out.println(new String(array));
+        localSocketChannel.write(((ByteBuf) msg).retain());
         ReferenceCountUtil.release(msg);
     }
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
         ctx.flush();
+        localSocketChannel.flush();
     }
 }

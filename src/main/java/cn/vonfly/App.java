@@ -15,8 +15,8 @@ public class App {
                 .localAddress(1081)
                 .childHandler(new SocksServerInitializer());
         try {
-            serverBootstrap.bind().sync().channel().closeFuture().sync();
             System.out.println("local server start ");
+            serverBootstrap.bind().sync().channel().closeFuture().sync();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
