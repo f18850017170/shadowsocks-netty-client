@@ -1,6 +1,8 @@
 package cn.vonfly;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -15,7 +17,29 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
 
     protected void channelRead0(final ChannelHandlerContext ctx, final SocksCmdRequest msg) throws Exception {
         Promise<Channel> promise = ctx.executor().newPromise();
-
+        ByteBuf socksCmdReqMsg = ctx.alloc().buffer();
+        msg.encodeAsByteBuf(socksCmdReqMsg);
+        socksCmdReqMsg.skipBytes(3);//跳过版本号(1byte)，cmd命名(1byte),RSV保留字段(1byte)
+        byte addressType = socksCmdReqMsg.readByte();
+        SocksAddressType socksAddressType = SocksAddressType.valueOf(addressType);
+        int bytesLen = 1;//1byte socksAddressType
+        switch (socksAddressType) {
+            case IPv4:
+                bytesLen += 4;
+                break;
+            case DOMAIN:
+                bytesLen += 1;
+                bytesLen += socksCmdReqMsg.readByte();
+                break;
+            case IPv6:
+                bytesLen += 16;
+                break;
+        }
+        bytesLen += 2;//port
+        final ByteBuf dstAddr = Unpooled.buffer(bytesLen);
+        socksCmdReqMsg.resetReaderIndex();
+        socksCmdReqMsg.skipBytes(3);
+        socksCmdReqMsg.readBytes(dstAddr, bytesLen);
         promise.addListener(new GenericFutureListener<Future<Channel>>() {
             public void operationComplete(Future<Channel> future) throws Exception {
                 final Channel remoteInLocalBoundChannel = future.getNow();//连接到远程代理服务器的channel
@@ -28,7 +52,7 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
                                     ctx.pipeline()
 //                                            .addLast(new SkipSocksInBoundHandler())
 //                                            .addLast(new LocalMsgEncrypt())//加密请求数据
-                                            .addLast(new LocalOutReplayHandler((SocketChannel) remoteInLocalBoundChannel));
+                                            .addLast(new LocalOutReplayHandler(dstAddr, (SocketChannel) remoteInLocalBoundChannel));
                                     remoteInLocalBoundChannel.pipeline()
 //                                            .addLast(new RemoteMsgDecrypt())//解密remote 返回信息
                                             .addLast(new RemoteInReplayHandler((SocketChannel) ctx.channel()));//写到本地local channel
