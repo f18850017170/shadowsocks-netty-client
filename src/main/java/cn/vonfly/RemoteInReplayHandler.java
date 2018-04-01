@@ -8,10 +8,10 @@ import io.netty.util.ReferenceCountUtil;
 
 //读取remote 返回的信息，写入到local channel
 public class RemoteInReplayHandler extends ChannelInboundHandlerAdapter{
-    private SocketChannel localSocketChannel;
+    private SocketChannel local2ClientChannel;
 
     public RemoteInReplayHandler(SocketChannel socketChannel) {
-        this.localSocketChannel = socketChannel;
+        this.local2ClientChannel = socketChannel;
     }
 
     @Override
@@ -25,7 +25,7 @@ public class RemoteInReplayHandler extends ChannelInboundHandlerAdapter{
             byteBuf.getBytes(byteBuf.readerIndex(),array);
         }
         System.out.println(Thread.currentThread().getName() +"接受远程代理返回信息，即将写入ss local channel,len="+((ByteBuf) msg).readableBytes());
-        localSocketChannel.write(((ByteBuf) msg).retain());
+        local2ClientChannel.write(((ByteBuf) msg).retain());
         ReferenceCountUtil.release(msg);
     }
 
@@ -33,6 +33,6 @@ public class RemoteInReplayHandler extends ChannelInboundHandlerAdapter{
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
         ctx.fireChannelReadComplete();
         ctx.flush();
-        localSocketChannel.flush();
+        local2ClientChannel.flush();
     }
 }

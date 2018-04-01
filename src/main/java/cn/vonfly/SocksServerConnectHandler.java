@@ -43,38 +43,41 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
         socksCmdReqMsg.skipBytes(3);
         socksCmdReqMsg.readBytes(dstAddr, bytesLen);
 
-
+        //proxy server shake hand成功时promise成功
         promise.addListener(new GenericFutureListener<Future<Channel>>() {
             public void operationComplete(Future<Channel> future) throws Exception {
                 final Channel remoteInLocalBoundChannel = future.getNow();//连接到远程代理服务器的channel
                 if (future.isSuccess()) {
+                    //TODO 会被执行到多次，需要再确认
+                    ctx.pipeline().remove(SocksServerConnectHandler.class);
                     ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS, SocksAddressType.IPv4))//返回成功 标志着socks4次认证完成 所以移除掉相应的channleHandle
                             .addListener(new ChannelFutureListener() {
                                 public void operationComplete(ChannelFuture future) throws Exception {
-                                    ctx.pipeline().remove(SocksServerConnectHandler.this);
                                     ctx.pipeline()
 //                                            .addLast(new SkipSocksInBoundHandler())
 //                                            .addLast(new LocalMsgEncrypt())//加密请求数据
-                                            .addLast(new DstAddressHandler(msg, dstAddr, remoteInLocalBoundChannel));
-                                    remoteInLocalBoundChannel.pipeline()
-//                                            .addLast(new RemoteMsgDecrypt())//解密remote 返回信息
-                                            .addLast(new RemoteInReplayHandler((SocketChannel) ctx.channel()));//写到本地local channel
+                                            .addLast(new LocalOutReplayHandler(remoteInLocalBoundChannel));
                                     System.out.println(future.channel() + "socks5 四次握手协议完成，返回成功");
                                 }
                             });
                 }
             }
         });
-        final Channel inBoundChannel = ctx.channel();
-        bootstrap.group(inBoundChannel.eventLoop()).channel(NioSocketChannel.class).option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
+        final Channel local2ClientChannel = ctx.channel();
+        bootstrap.group(local2ClientChannel.eventLoop()).channel(NioSocketChannel.class).option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
                 .option(ChannelOption.SO_KEEPALIVE, true)
-                .handler(new ClientChannelPromiseHandle(promise)); //
+                .handler(new ChannelInitializer<Channel>() {
+                    @Override
+                    protected void initChannel(Channel ch) throws Exception {
+                        ch.pipeline().addLast(new RemoteProxyShakeHandHandler(dstAddr, promise, (SocketChannel) local2ClientChannel));
+                    }
+                }); //
         //TODO 代理的地址和端口
         bootstrap.connect("127.0.0.1", 2081).addListener(new ChannelFutureListener() {
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (!future.isSuccess()) {
                     //回写local ss 连接失败信息
-                    ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.FAILURE, SocksAddressType.IPv4));//TODO
+                    local2ClientChannel.writeAndFlush(new SocksCmdResponse(SocksCmdStatus.FAILURE, SocksAddressType.IPv4));//TODO
                 } else {
                     System.out.println(future.channel() + "连接到远程代理成功,DST.ADDRESS=" + msg.host() + ":" + msg.port() + new Date());
                 }
