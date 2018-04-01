@@ -11,6 +11,8 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 
+import java.util.Date;
+
 @ChannelHandler.Sharable
 public final class SocksServerConnectHandler extends SimpleChannelInboundHandler<SocksCmdRequest> {
     private Bootstrap bootstrap = new Bootstrap();
@@ -36,10 +38,12 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
                 break;
         }
         bytesLen += 2;//port
-        final ByteBuf dstAddr = Unpooled.buffer(bytesLen);
+        final ByteBuf dstAddr = ctx.alloc().buffer(bytesLen);
         socksCmdReqMsg.resetReaderIndex();
         socksCmdReqMsg.skipBytes(3);
         socksCmdReqMsg.readBytes(dstAddr, bytesLen);
+
+
         promise.addListener(new GenericFutureListener<Future<Channel>>() {
             public void operationComplete(Future<Channel> future) throws Exception {
                 final Channel remoteInLocalBoundChannel = future.getNow();//连接到远程代理服务器的channel
@@ -47,15 +51,15 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
                     ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS, SocksAddressType.IPv4))//返回成功 标志着socks4次认证完成 所以移除掉相应的channleHandle
                             .addListener(new ChannelFutureListener() {
                                 public void operationComplete(ChannelFuture future) throws Exception {
-                                    ctx.pipeline().remove(SocksServerConnectHandler.this)
-                                            .remove(SocksMessageEncoder.class);
+                                    ctx.pipeline().remove(SocksServerConnectHandler.this);
                                     ctx.pipeline()
 //                                            .addLast(new SkipSocksInBoundHandler())
 //                                            .addLast(new LocalMsgEncrypt())//加密请求数据
-                                            .addLast(new LocalOutReplayHandler(dstAddr, (SocketChannel) remoteInLocalBoundChannel));
+                                            .addLast(new DstAddressHandler(msg, dstAddr, remoteInLocalBoundChannel));
                                     remoteInLocalBoundChannel.pipeline()
 //                                            .addLast(new RemoteMsgDecrypt())//解密remote 返回信息
                                             .addLast(new RemoteInReplayHandler((SocketChannel) ctx.channel()));//写到本地local channel
+                                    System.out.println(future.channel() + "socks5 四次握手协议完成，返回成功");
                                 }
                             });
                 }
@@ -72,7 +76,7 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
                     //回写local ss 连接失败信息
                     ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.FAILURE, SocksAddressType.IPv4));//TODO
                 } else {
-                    System.out.println("连接到远程代理成功");
+                    System.out.println(future.channel() + "连接到远程代理成功,DST.ADDRESS=" + msg.host() + ":" + msg.port() + new Date());
                 }
             }
         });

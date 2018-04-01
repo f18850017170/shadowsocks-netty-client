@@ -24,13 +24,14 @@ public class RemoteInReplayHandler extends ChannelInboundHandlerAdapter{
         }else {//非数组支撑，是直接缓冲区
             byteBuf.getBytes(byteBuf.readerIndex(),array);
         }
-        System.out.println(new String(array));
+        System.out.println(Thread.currentThread().getName() +"接受远程代理返回信息，即将写入ss local channel,len="+((ByteBuf) msg).readableBytes());
         localSocketChannel.write(((ByteBuf) msg).retain());
         ReferenceCountUtil.release(msg);
     }
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        ctx.fireChannelReadComplete();
         ctx.flush();
         localSocketChannel.flush();
     }
