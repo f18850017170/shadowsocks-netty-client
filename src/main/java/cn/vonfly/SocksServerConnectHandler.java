@@ -23,7 +23,7 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
         msg.encodeAsByteBuf(socksCmdReqMsg);
         socksCmdReqMsg.skipBytes(3);//跳过版本号(1byte)，cmd命名(1byte),RSV保留字段(1byte)
         byte addressType = socksCmdReqMsg.readByte();
-        SocksAddressType socksAddressType = SocksAddressType.valueOf(addressType);
+        final SocksAddressType socksAddressType = SocksAddressType.valueOf(addressType);
         int bytesLen = 1;//1byte socksAddressType
         switch (socksAddressType) {
             case IPv4:
@@ -42,24 +42,28 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
         socksCmdReqMsg.resetReaderIndex();
         socksCmdReqMsg.skipBytes(3);
         socksCmdReqMsg.readBytes(dstAddr, bytesLen);
-
         //proxy server shake hand成功时promise成功
         promise.addListener(new GenericFutureListener<Future<Channel>>() {
             public void operationComplete(Future<Channel> future) throws Exception {
-                final Channel remoteInLocalBoundChannel = future.getNow();//连接到远程代理服务器的channel
+                final Channel remoteToLocalInBoundChannel = future.getNow();//连接到远程代理服务器的channel
                 if (future.isSuccess()) {
+                    ctx.pipeline()
+//                          .addLast(new LocalMsgEncrypt())//加密请求数据
+                            .addLast(new LocalOutReplayHandler(remoteToLocalInBoundChannel));
                     //TODO 会被执行到多次，需要再确认
-                    ctx.pipeline().remove(SocksServerConnectHandler.class);
                     ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS, SocksAddressType.IPv4))//返回成功 标志着socks4次认证完成 所以移除掉相应的channleHandle
                             .addListener(new ChannelFutureListener() {
                                 public void operationComplete(ChannelFuture future) throws Exception {
-                                    ctx.pipeline()
-//                                            .addLast(new SkipSocksInBoundHandler())
-//                                            .addLast(new LocalMsgEncrypt())//加密请求数据
-                                            .addLast(new LocalOutReplayHandler(remoteInLocalBoundChannel));
+                                    if (null != ctx.pipeline().get(SocksMessageEncoder.class)) {
+                                        ctx.pipeline().remove(SocksMessageEncoder.class);
+                                    }
                                     System.out.println(future.channel() + "socks5 四次握手协议完成，返回成功");
                                 }
                             });
+                } else {
+                    Throwable cause = future.cause();
+                    cause.printStackTrace();
+                    ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.FAILURE, socksAddressType));
                 }
             }
         });
@@ -83,6 +87,8 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
                 }
             }
         });
+        //TODO 不要在异步任务中移除其他handler，可能会出现handler不存在问题
+        ctx.pipeline().remove(this);
     }
 
     @Override
