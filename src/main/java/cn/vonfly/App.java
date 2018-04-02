@@ -13,7 +13,7 @@ public class App {
         serverBootstrap.group(new NioEventLoopGroup(1),new NioEventLoopGroup())
                 .channel(NioServerSocketChannel.class)
                 .localAddress(1081)
-                .childHandler(new SocksServerInitializer());
+                .childHandler(new Local2ClientChannelInitializer());
         try {
             System.out.println("local server start ");
             serverBootstrap.bind().sync().channel().closeFuture().sync();

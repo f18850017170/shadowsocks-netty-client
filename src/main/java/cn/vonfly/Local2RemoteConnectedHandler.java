@@ -2,28 +2,32 @@ package cn.vonfly;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.socks.*;
+import io.netty.handler.codec.socks.SocksAddressType;
+import io.netty.handler.codec.socks.SocksCmdRequest;
+import io.netty.handler.codec.socks.SocksCmdResponse;
+import io.netty.handler.codec.socks.SocksCmdStatus;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 
 import java.util.Date;
 
-@ChannelHandler.Sharable
-public final class SocksServerConnectHandler extends SimpleChannelInboundHandler<SocksCmdRequest> {
+/**
+ *
+ */
+public final class Local2RemoteConnectedHandler extends SimpleChannelInboundHandler<SocksCmdRequest> {
     private Bootstrap bootstrap = new Bootstrap();
 
     protected void channelRead0(final ChannelHandlerContext ctx, final SocksCmdRequest msg) throws Exception {
-        Promise<Channel> promise = ctx.executor().newPromise();
+        //1、解析dst.address信息
         ByteBuf socksCmdReqMsg = ctx.alloc().buffer();
         msg.encodeAsByteBuf(socksCmdReqMsg);
         socksCmdReqMsg.skipBytes(3);//跳过版本号(1byte)，cmd命名(1byte),RSV保留字段(1byte)
         byte addressType = socksCmdReqMsg.readByte();
-        SocksAddressType socksAddressType = SocksAddressType.valueOf(addressType);
+        final SocksAddressType socksAddressType = SocksAddressType.valueOf(addressType);
         int bytesLen = 1;//1byte socksAddressType
         switch (socksAddressType) {
             case IPv4:
@@ -43,14 +47,15 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
         socksCmdReqMsg.skipBytes(3);
         socksCmdReqMsg.readBytes(dstAddr, bytesLen);
 
-        //proxy server shake hand成功时promise成功
+        //2、proxy server shake hand成功时promise成功
+        final Promise<Channel> promise = ctx.executor().newPromise();
         promise.addListener(new GenericFutureListener<Future<Channel>>() {
             public void operationComplete(Future<Channel> future) throws Exception {
                 final Channel remoteInLocalBoundChannel = future.getNow();//连接到远程代理服务器的channel
                 if (future.isSuccess()) {
                     //TODO 会被执行到多次，需要再确认
-                    ctx.pipeline().remove(SocksServerConnectHandler.class);
-                    ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS, SocksAddressType.IPv4))//返回成功 标志着socks4次认证完成 所以移除掉相应的channleHandle
+                    ctx.pipeline().remove(Local2RemoteConnectedHandler.class);
+                    ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS, socksAddressType))//返回成功 标志着socks4次认证完成 所以移除掉相应的channleHandle
                             .addListener(new ChannelFutureListener() {
                                 public void operationComplete(ChannelFuture future) throws Exception {
                                     ctx.pipeline()
@@ -77,12 +82,13 @@ public final class SocksServerConnectHandler extends SimpleChannelInboundHandler
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (!future.isSuccess()) {
                     //回写local ss 连接失败信息
-                    local2ClientChannel.writeAndFlush(new SocksCmdResponse(SocksCmdStatus.FAILURE, SocksAddressType.IPv4));//TODO
+                    local2ClientChannel.writeAndFlush(new SocksCmdResponse(SocksCmdStatus.FAILURE, socksAddressType));//TODO
                 } else {
                     System.out.println(future.channel() + "连接到远程代理成功,DST.ADDRESS=" + msg.host() + ":" + msg.port() + new Date());
                 }
             }
         });
+
     }
 
     @Override
