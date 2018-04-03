@@ -33,7 +33,6 @@ public class RemoteProxyShakeHandHandler extends SimpleChannelInboundHandler<Byt
     protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
         byte code = msg.readByte();
         if (code == SHAKE_HAND_SUCC) {
-            ctx.pipeline().remove(RemoteProxyShakeHandHandler.class);
             //.addLast(new RemoteMsgDecrypt())//解密remote 返回信息
             ctx.pipeline().addLast(new RemoteInReplayHandler(local2ClientChannel));
             System.out.println(this + " promise set succ,count=" + atomicInteger.getAndIncrement());
@@ -50,6 +49,7 @@ public class RemoteProxyShakeHandHandler extends SimpleChannelInboundHandler<Byt
             }
             promise.setFailure(new Throwable("shake hand with remote proxy fail:" + new String(tip, Charset.forName("UTF-8"))));
         }
+        ctx.pipeline().remove(this);
     }
 
     @Override
