@@ -46,7 +46,6 @@ public final class Local2RemoteConnectedHandler extends SimpleChannelInboundHand
         socksCmdReqMsg.resetReaderIndex();
         socksCmdReqMsg.skipBytes(3);
         socksCmdReqMsg.readBytes(dstAddr, bytesLen);
-        //proxy server shake hand成功时promise成功
 
         //2、proxy server shake hand成功时promise成功
         final Promise<Channel> promise = ctx.executor().newPromise();
@@ -55,17 +54,11 @@ public final class Local2RemoteConnectedHandler extends SimpleChannelInboundHand
                 final Channel remoteToLocalInBoundChannel = future.getNow();//连接到远程代理服务器的channel
                 if (future.isSuccess()) {
                     ctx.pipeline()
-//                          .addLast(new LocalMsgEncrypt())//加密请求数据
                             .addLast(new LocalOutReplayHandler(remoteToLocalInBoundChannel));
                     //TODO 会被执行到多次，需要再确认
-                    ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS, SocksAddressType.IPv4))//返回成功 标志着socks4次认证完成 所以移除掉相应的channleHandle
-                    ctx.pipeline().remove(Local2RemoteConnectedHandler.class);
                     ctx.channel().writeAndFlush(new SocksCmdResponse(SocksCmdStatus.SUCCESS, socksAddressType))//返回成功 标志着socks4次认证完成 所以移除掉相应的channleHandle
                             .addListener(new ChannelFutureListener() {
                                 public void operationComplete(ChannelFuture future) throws Exception {
-                                    if (null != ctx.pipeline().get(SocksMessageEncoder.class)) {
-                                        ctx.pipeline().remove(SocksMessageEncoder.class);
-                                    }
                                     System.out.println(future.channel() + "socks5 四次握手协议完成，返回成功");
                                 }
                             });

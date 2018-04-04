@@ -1,19 +1,17 @@
 package cn.vonfly;
 
-import io.netty.channel.ChannelConfig;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.socks.SocksInitRequestDecoder;
-import io.netty.handler.codec.socks.SocksMessageEncoder;
 
 /**
  * socks服务处理
  */
-public final class SocksServerInitializer extends ChannelInitializer<SocketChannel> {
-    private SocksRequestHandle socksRequestHandle;
+public final class ClientServerInitializer extends ChannelInitializer<SocketChannel> {
+    private Local2ClientChannelInitializer socksRequestHandle;
 
-    public SocksServerInitializer() {
-        this.socksRequestHandle = new SocksRequestHandle();
+    public ClientServerInitializer() {
+        this.socksRequestHandle = new Local2ClientChannelInitializer();
     }
 
     protected void initChannel(SocketChannel ch) throws Exception {
