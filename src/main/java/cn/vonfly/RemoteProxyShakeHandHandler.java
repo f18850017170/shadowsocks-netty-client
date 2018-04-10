@@ -34,6 +34,7 @@ public class RemoteProxyShakeHandHandler extends SimpleChannelInboundHandler<Byt
         byte code = msg.readByte();
         if (code == SHAKE_HAND_SUCC) {
             ctx.pipeline().addFirst(new InMsg2Decrypt());//解密remote 返回信息
+            ctx.pipeline().addFirst(new InMsgSliceFrameHandler());
             ctx.pipeline().addLast(new RemoteInReplayHandler(local2ClientChannel));
 
             ctx.pipeline().addFirst(new OutMsg2Encrypt());

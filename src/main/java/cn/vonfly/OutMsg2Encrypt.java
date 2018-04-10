@@ -6,6 +6,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
 /**
  * 从client->remote的信息进行加密
@@ -24,6 +25,8 @@ public class OutMsg2Encrypt extends MessageToByteEncoder<ByteBuf> {
             msg.readBytes(array);
         }
         byte[] encrypt = aesEncrypt.encrypt(key, array);
+        int length = encrypt.length;
+        out.writeShortLE((short)length);
         out.writeBytes(encrypt);
     }
 }
